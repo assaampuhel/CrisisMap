@@ -27,16 +27,27 @@ async function loadIncidents() {
 
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = (it.timestamp ? it.timestamp.split("T").join(" ") : "") + " • Severity: " + (analysis.severity || "n/a");
+      meta.textContent =
+        (it.timestamp ? it.timestamp.split("T").join(" ") : "") +
+        " • Severity: " +
+        (analysis.severity || "n/a");
 
       card.appendChild(title);
       card.appendChild(summary);
       card.appendChild(meta);
 
-      if (it.image_filename) {
+      // 🔥 IMAGE HANDLING (UPDATED)
+      if (it.image_url) {
+        // Preferred: Firebase Storage public URL
+        const img = document.createElement("img");
+        img.src = it.image_url;
+        img.alt = "report image";
+        card.appendChild(img);
+      } else if (it.image_filename) {
+        // Fallback: local uploads (debug / backup)
         const img = document.createElement("img");
         img.src = `http://127.0.0.1:5000/uploads/${encodeURIComponent(it.image_filename)}`;
-        img.alt = "report image";
+        img.alt = "report image (local fallback)";
         card.appendChild(img);
       }
 

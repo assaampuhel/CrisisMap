@@ -16,7 +16,7 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 # Choose the model (adjust if new model names are available)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 def analyze_incident(report):
     """

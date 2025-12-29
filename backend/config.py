@@ -12,5 +12,8 @@ load_dotenv(root / ".env")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
-# Where uploaded images are saved (relative to backend/)
+# Firebase Storage bucket name (e.g. "your-project-id.appspot.com")
+FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET")
+
+# Where uploaded images are saved locally (kept for fallback / debugging)
 UPLOAD_FOLDER = "uploads"

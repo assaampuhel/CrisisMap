@@ -11,7 +11,6 @@ def save_raw_report(data):
     Save a raw report to `raw_reports` collection.
     """
     db = firestore.client()
-    # convert timestamp to server timestamp if needed
     doc_ref = db.collection("raw_reports").add(data)
     return doc_ref
 
@@ -34,7 +33,6 @@ def get_all_incidents():
         item = d.to_dict()
         # include document id for admin-ui usage
         item["_id"] = d.id
-        # Firestore timestamps are not JSON serializable directly; convert to ISO if present
         ts = item.get("timestamp")
         if ts:
             try:
