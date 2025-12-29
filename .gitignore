@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+backend/venv/
+
+# Env / secrets
+.env
+backend/firebase_admin_key.json
+
+# uploads
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/

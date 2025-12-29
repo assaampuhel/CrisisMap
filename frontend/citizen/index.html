@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CrisisMap AI — Report</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="topbar">
+      <h1>CrisisMap AI</h1>
+      <p class="tag">Report emergencies quickly — help responders help faster</p>
+    </header>
+
+    <main class="grid">
+      <section class="card form-card">
+        <h2>Submit a report</h2>
+        <form id="reportForm">
+          <label>Location (name or brief)</label>
+          <input type="text" name="location" id="locationInput" placeholder="e.g., Near Main Hospital" required />
+
+          <label>Description</label>
+          <textarea name="description" id="descriptionInput" rows="4" placeholder="What's happening? Be as specific as possible" required></textarea>
+
+          <label>Photo (optional)</label>
+          <input type="file" id="imageInput" name="image" accept="image/*" />
+
+          <div class="small">Drag the map marker to adjust exact location.</div>
+
+          <button id="submitBtn" type="submit">Submit Report</button>
+
+          <p id="status" class="status"></p>
+        </form>
+      </section>
+
+      <section class="card map-card">
+        <h2>Confirm location</h2>
+        <div id="map" style="height: 360px; width: 100%; border-radius:8px;"></div>
+      </section>
+    </main>
+    <footer class="footer">
+      <small>Prototype — demo only. Data is stored in local Firestore instance.</small>
+    </footer>
+  </div>
+
+  <script src="map.js"></script>
+  <script src="form.js"></script>
+  <!-- Replace the API key with your GOOGLE_MAPS_API_KEY or load it via server if desired -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+</body>
+</html>

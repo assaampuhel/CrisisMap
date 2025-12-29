@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>CrisisMap AI — Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1>Admin Dashboard</h1>
+      <p class="muted">Processed incidents — click one to generate an action plan</p>
+    </header>
+
+    <main id="incidents" class="grid"></main>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <button id="closeModal">Close</button>
+        <pre id="planText"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
