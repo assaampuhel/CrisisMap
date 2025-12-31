@@ -1,0 +1,44 @@
+<!-- frontend/admin/login.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Login</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { font-family: Inter, system-ui; display:flex; align-items:center; justify-content:center; height:100vh; background:#f4f6f9; }
+    .login { background:white; padding:22px; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); width:320px; }
+    .login input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #e6e9ef; }
+    .btn { width:100%; padding:10px; background:#d32f2f; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="login">
+    <h2>Admin Login</h2>
+    <input id="u" placeholder="username" />
+    <input id="p" placeholder="password" type="password" />
+    <div id="msg" style="color:red; height:18px"></div>
+    <button id="loginBtn" class="btn">Login</button>
+  </div>
+
+  <script>
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const u = document.getElementById('u').value;
+      const p = document.getElementById('p').value;
+      const res = await fetch('http://127.0.0.1:5000/api/login', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem('admin_token', data.token);
+        window.location.href = 'dashboard.html';
+      } else {
+        document.getElementById('msg').innerText = data.error || 'Login failed';
+      }
+    });
+  </script>
+</body>
+</html>

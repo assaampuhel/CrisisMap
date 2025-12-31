@@ -1,52 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CrisisMap AI — Report</title>
+  <title>CrisisMap — Report an Emergency</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <header class="topbar">
-      <h1>CrisisMap AI</h1>
-      <p class="tag">Report emergencies quickly — help responders help faster</p>
-    </header>
+  <header class="site-header">
+    <div class="brand">
+      <div class="logo">🚨</div>
+      <div>
+        <h1>CrisisMap</h1>
+        <div class="tag">Report hazards • Get help faster</div>
+      </div>
+    </div>
+  </header>
 
-    <main class="grid">
-      <section class="card form-card">
-        <h2>Submit a report</h2>
-        <form id="reportForm">
-          <label>Location (name or brief)</label>
-          <input type="text" name="location" id="locationInput" placeholder="e.g., Near Main Hospital" required />
+  <main class="container">
+    <section class="left-col">
+      <div class="card">
+        <h2 class="card-title">Where is the incident?</h2>
 
-          <label>Description</label>
-          <textarea name="description" id="descriptionInput" rows="4" placeholder="What's happening? Be as specific as possible" required></textarea>
+        <div class="map-controls">
+          <input id="placeSearch" placeholder="Search a place or address" aria-label="Search place" />
+          <button id="locBtn" title="Use my current location">📍 My location</button>
+        </div>
+
+        <div id="map" class="map"></div>
+
+        <p class="hint">Drag the pin to refine the exact spot.</p>
+      </div>
+    </section>
+
+    <section class="right-col">
+      <div class="card">
+        <h2 class="card-title">Report details</h2>
+
+        <form id="reportForm" class="report-form">
+
+          <label for="nameInput">Your Name</label>
+          <input id="nameInput" name="name" placeholder="Full name" required />
+
+          <label for="phoneInput">Phone Number</label>
+          <input id="phoneInput" name="phone" type="tel" placeholder="+91 98765 43210" required />
+
+          <label for="emailInput">Email (optional)</label>
+          <input id="emailInput" name="email" type="email" placeholder="you@email.com" />
+
+          <label for="locationInput">Location name / Address</label>
+          <input id="locationInput" name="location" placeholder="Neighborhood, street or address" />
+
+          <label for="descriptionInput">Description</label>
+          <div class="desc-row">
+            <textarea
+              id="descriptionInput"
+              name="description"
+              placeholder="What happened? (who is affected, hazards, injuries, etc.)"
+              required
+            ></textarea>
+            <button type="button" id="micBtn" class="mic" title="Speak description">🎤</button>
+          </div>
 
           <label for="imageInput">Photo (optional)</label>
-          <input type="file" id="imageInput" name="image" accept="image/*" />
+          <input id="imageInput" name="image" type="file" accept="image/*" />
 
-          <div class="small">Drag the map marker to adjust exact location.</div>
-
-          <button id="submitBtn" type="submit">Submit Report</button>
-
-          <p id="status" class="status"></p>
+          <div class="actions">
+            <button id="submitBtn" type="submit" class="btn btn-primary">
+              Submit Report
+            </button>
+            <div id="status" class="status"></div>
+          </div>
         </form>
-      </section>
+      </div>
+    </section>
+  </main>
 
-      <section class="card map-card">
-        <h2>Confirm location</h2>
-        <div id="map" style="height: 360px; width: 100%; border-radius:8px;"></div>
-      </section>
-    </main>
-    <footer class="footer">
-      <small>Prototype — demo only. Data is stored in local Firestore instance.</small>
-    </footer>
-  </div>
-
+  <!-- toast area will be injected dynamically -->
   <script src="map.js"></script>
   <script src="form.js"></script>
-  <!-- Replace the API key with your GOOGLE_MAPS_API_KEY or load it via server if desired -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-ycerXN_MAc5A09sy3tPgZaQ7YCYdU54&callback=initMap" async defer></script>
+
+  <!-- Replace YOUR_GOOGLE_MAPS_API_KEY with your API key; include places library -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-ycerXN_MAc5A09sy3tPgZaQ7YCYdU54&libraries=places&callback=initMap"></script>
 </body>
 </html>
