@@ -11,6 +11,11 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials
 from config import UPLOAD_FOLDER, FIREBASE_STORAGE_BUCKET
+from routes.reports import reports_bp
+from routes.admin import admin_bp
+from routes.team import team_bp
+from routes.translate import translate_bp
+from routes.speech_stt import speech_bp
 
 # Initialize Firebase Admin (service account file must be in backend/)
 if not os.path.exists("./firebase_admin_key.json"):
@@ -31,9 +36,9 @@ CORS(app)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Register modular routes (blueprints)
-from routes.reports import reports_bp
-from routes.admin import admin_bp
-
+app.register_blueprint(speech_bp, url_prefix="/api/speech")
+app.register_blueprint(translate_bp, url_prefix="/api")
+app.register_blueprint(team_bp, url_prefix="/api")
 app.register_blueprint(reports_bp, url_prefix="/api")
 app.register_blueprint(admin_bp, url_prefix="/api")
 

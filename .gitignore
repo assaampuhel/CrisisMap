@@ -7,6 +7,8 @@ backend/venv/
 # Env / secrets
 .env
 backend/firebase_admin_key.json
+backend/credentials/gcloud-sa.json
+backend/keys/gcloud-sa.json
 
 # uploads
 backend/uploads/
@@ -14,3 +16,5 @@ backend/uploads/
 # IDE
 .vscode/
 .idea/
+
+.gitignore

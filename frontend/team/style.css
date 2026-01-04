@@ -1,0 +1,84 @@
+:root {
+  --accent: #2563eb; /* Rescue Blue */
+  --accent-dark: #1e40af;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #1e293b;
+  --muted: #64748b;
+  --border: #e2e8f0;
+}
+
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+* { box-sizing: border-box; }
+
+.app-wrap { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+/* Header */
+.app-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.brand h1 { margin: 0; font-size: 22px; color: var(--accent); }
+.team-badge { font-size: 14px; background: #dbeafe; color: var(--accent-dark); padding: 4px 10px; border-radius: 20px; display: inline-block; margin-top: 4px; font-weight: 600; }
+
+/* Grid */
+.mission-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+
+/* Cards */
+.card { background: var(--surface); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border); transition: transform 0.2s; cursor: pointer; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #bfdbfe; }
+.card h3 { margin: 0 0 10px 0; font-size: 18px; }
+
+/* Badges */
+.badge { padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; display: inline-block; margin-right: 6px; }
+.badge.status-new { background: #f59e0b; }
+.badge.status-in_progress { background: var(--accent); }
+.badge.status-closed { background: #475569; }
+.badge.severity-critical { background: #dc2626; }
+
+/* Buttons */
+.btn { padding: 10px 16px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 14px; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+/* Modal */
+.modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal.hidden { display: none; }
+.modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+.modal-content { background: #fff; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; position: relative; border-radius: 12px; display: flex; flex-direction: column; }
+.modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+.modal-header h2 { margin: 0; font-size: 18px; }
+.modal-close { border: none; background: transparent; font-size: 20px; cursor: pointer; }
+.modal-body { padding: 20px; }
+
+.plan-box { margin: 16px 0; }
+.plan-box label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+pre { white-space: pre-wrap; background: #f1f5f9; padding: 12px; border-radius: 8px; font-family: monospace; border-left: 4px solid var(--accent); }
+
+.incident-stack { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.action-bar { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+
+/* --- GOOGLE TRANSLATE FIXES --- */
+
+/* 1. Hide the Google Translate Top Banner */
+.goog-te-banner-frame.skiptranslate {
+    display: none !important;
+}
+
+/* 2. Force the body back to the top (Google tries to add top: 40px) */
+body {
+    top: 0px !important;
+    position: static !important; 
+}
+
+/* 3. Hide the Google Logo and Tooltips if they appear */
+.goog-logo-link {
+    display: none !important;
+}
+.goog-te-gadget {
+    color: transparent !important;
+}
+
+/* 4. Hide the text "Powered by Google" but keep the dropdown functional */
+.goog-te-gadget .goog-te-combo {
+    color: black !important;
+}
+

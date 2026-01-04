@@ -4,7 +4,7 @@ let map, marker, autocomplete;
 window.currentLocation = null;
 
 function initMap(){
-  const fallback = { lat: 23.588, lng: 58.382 };
+  const fallback = { lat: 13.0108, lng: 74.7943 };
 
   map = new google.maps.Map(document.getElementById("map"), {
     center: fallback,

@@ -2,103 +2,166 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CrisisMap AI — Admin</title>
+  <title>CrisisMap AI — Command Center</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container admin">
-    <header class="admin-top">
-      <h1>CrisisMap — Admin</h1>
-
-      <div class="controls">
-        <input id="searchInput" placeholder="Search location or description..." />
-        <select id="statusFilter" title="Filter incidents by status">
-          <option value="">All</option>
-          <option value="new">New</option>
-          <option value="in_progress">In Progress</option>
-          <option value="rescue_dispatched">Rescue Dispatched</option>
-          <option value="closed">Closed</option>
-        </select>
-
-        <button id="generateBtn" class="btn btn-primary">Generate Dispatch Plan</button>
-        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
-
+  <div class="admin-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-small">🚨</div>
+        <h2>Admin Panel</h2>
       </div>
-    </header>
 
-    <main>
-      <section id="incidents" class="incident-list"></section>
+      <div class="sidebar-section">
+        <h3>Rescue Teams</h3>
+        <div id="teamsList" class="teams-list">
+          <div class="muted">Loading teams...</div>
+        </div>
+        <button id="refreshTeamsBtnSide" class="btn btn-sm btn-outline width-100">Refresh Status</button>
+      </div>
+
+      <div class="sidebar-footer">
+         <button id="openCreateTeam" class="btn btn-sm btn-ghost width-100">+ Create Team</button>
+         <button id="logoutBtn" class="btn btn-sm btn-ghost width-100">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="top-bar">
+        <div class="bar-left">
+          <h1>Live Incidents</h1>
+          <span class="live-badge">● Live</span>
+        </div>
+
+        <div class="controls">
+          <div class="search-box">
+             <input id="searchInput" placeholder="Search reports..." />
+          </div>
+          <select id="statusFilter" title="Filter Status">
+            <option value="new" selected>New</option>
+            <option value="rescue_dispatched">Dispatched</option>
+            <option value="in_progress">In Progress</option>
+            <option value="closed">Closed</option>
+            <option value="">All</option>
+          </select>
+          <button id="generateBtn" class="btn btn-primary">Generate Plan</button>
+        </div>
+      </header>
+
+      <div class="content-scroll">
+        <section id="incidents" class="incident-list"></section>
+      </div>
     </main>
+  </div>
 
-    <!-- Detail Modal -->
-      <div id="detailModal" class="modal hidden" role="dialog" aria-hidden="true">
-        <div class="modal-content">
-          <button class="modal-close" id="detailClose">✖</button>
+  <div id="detailModal" class="modal hidden" role="dialog" aria-hidden="true">
+    <div class="modal-overlay"></div>
+    <div class="modal-content large">
+      <button class="modal-close" id="detailClose">✕</button>
 
-          <div class="modal-grid">
-            <div>
-              <h2 id="detailTitle">Location</h2>
-              <div id="detailSummary" style="display:none;"></div>
+      <div class="modal-header">
+         <h2 id="detailTitle">Incident Details</h2>
+         <div id="detailSeverityBadge"></div>
+      </div>
 
-              <!-- Reporter -->
-              <div style="margin-top:6px; font-size:16px;">
-                <div style="padding-bottom: 10px;">
-                  <strong>Reported by:</strong> <span id="reporterName">—</span>
-                </div>
-                <strong>Phone:</strong> <a id="reporterPhoneLink" href="#">—</a>
-              </div>
+      <div class="modal-body-grid">
+        <div class="left-panel">
+          <div class="info-block">
+             <label>Summary</label>
+             <div id="detailSummary" class="ai-summary"></div>
+          </div>
+          <div id="followUpContainer"></div>
 
-              <div class="meta-row" style="margin-top:10px">
-                <div><strong>Severity:</strong> <span id="detailSeverity"></span></div>
-                <div><strong>Estimated affected:</strong> <span id="detailPeople"></span></div>
-              </div>
+          <div class="info-grid-row">
+            <div><label>Reported By</label> <span id="reporterName"></span></div>
+            <div><label>Phone</label> <a id="reporterPhoneLink" href="#"></a></div>
+            <div><label>Est. People</label> <span id="detailPeople"></span></div>
+            <div><label>Severity</label> <span id="detailSeverity"></span></div>
+          </div>
 
-              <p style="margin-top:12px"><strong>Description</strong></p>
-              <p id="detailDesc"></p>
+          <div class="info-block">
+            <label>Full Description</label>
+            <p id="detailDesc" class="desc-text"></p>
+          </div>
+          
+          <div id="diagnosticsContainer" class="diagnostics"></div>
 
-              <!-- Follow-up questions container -->
-              <div id="followUpContainer" style="margin-top:10px"></div>
+          <div class="status-action-box">
+             <label>Update Status</label>
+             <div class="status-row">
+               <select id="statusSelect">
+                 <option value="new">New</option>
+                 <option value="in_progress">In Progress</option>
+                 <option value="rescue_dispatched">Rescue Dispatched</option>
+                 <option value="closed">Closed</option>
+               </select>
+               <button id="saveStatusBtn" class="btn btn-primary">Update</button>
+             </div>
+          </div>
+        </div>
 
-              <!-- Diagnostics container (only show severity_source now) -->
-              <div id="diagnosticsContainer" style="margin-top:8px; color:#666; font-size:12px"></div>
-
-              <label for="statusSelect" style="display:block; margin-top:12px"><strong>Update status</strong></label>
-              <select id="statusSelect">
-                <option value="new">New</option>
-                <option value="in_progress">In Progress</option>
-                <option value="rescue_dispatched">Rescue Dispatched</option>
-                <option value="closed">Closed</option>
-              </select>
-
-              <div style="margin-top:12px">
-                <button id="saveStatusBtn" class="btn btn-primary">Save</button>
-              </div>
-            </div>
-
-            <div>
-              <img id="detailImage" alt="Incident photo" style="display:none; border-radius:8px; object-fit:cover; width:100%; max-height:260px;" />
-              <iframe id="mapFrame" title="Incident map" style="width:100%; height:260px; border:0; margin-top:12px"></iframe>
-            </div>
+        <div class="right-panel">
+          <img id="detailImage" alt="Evidence" class="evidence-img" style="display:none;" />
+          <div class="map-container">
+            <iframe id="mapFrame" title="Incident map" style="width:100%; height:300px; border:0;" ></iframe>
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
+  <div id="createTeamModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content small">
+      <button class="modal-close" id="createTeamClose">✕</button>
+      <h2>Add Rescue Team</h2>
+      <div class="form-stack">
+        <label>Team Name</label>
+        <input id="teamNameInput" placeholder="e.g. Alpha Squad" />
+        <label>Contact Info</label>
+        <input id="teamContactInput" placeholder="Phone or Radio Channel" />
+        <label>Access Password</label>
+        <input id="teamPasswordInput" type="password" placeholder="******" />
+        <button id="createTeamBtn" class="btn btn-primary full-width">Create Team</button>
+        <div id="createTeamMsg" class="text-center muted"></div>
+      </div>
+    </div>
+  </div>
 
+  <div id="planModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content medium">
+      <button class="modal-close" id="planClose">✕</button>
+      <div class="modal-header-simple">
+        <h2>AI Dispatch Plan</h2>
+        <div class="header-actions">
+           <button id="downloadPlanBtn" class="btn btn-sm btn-outline">Download</button>
+           <button id="refreshTeamsBtn" class="btn btn-sm btn-outline">Refresh</button>
+        </div>
+      </div>
 
-    <!-- Plan Modal -->
-    <div id="planModal" class="modal hidden" role="dialog" aria-hidden="true">
-      <div class="modal-content">
-        <button class="modal-close" id="planClose">✖</button>
-        <h2>Dispatch Action Plan</h2>
-        <pre id="planText" class="plan-text"></pre>
-        <div id="routeBlock" style="margin-top:10px"></div>
+      <div class="assign-section">
+        <label>Select Team to Assign</label>
+        <div class="assign-row">
+          <select id="teamSelect" title="Select Team to Assign"></select>
+          <button id="assignInModalBtn" class="btn btn-primary">Confirm Assignment</button>
+        </div>
+        <div id="teamGrid" class="visual-team-grid"></div>
+      </div>
+
+      <div class="plan-content">
+        <div id="planFriendly"></div>
+        <pre id="planText" class="code-block" style="display:none"></pre>
+        <div id="routeBlock"></div>
       </div>
     </div>
   </div>
 
   <script src="dashboard.js"></script>
-  <!-- Replace YOUR_GOOGLE_MAPS_API_KEY with your real browser key -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-ycerXN_MAc5A09sy3tPgZaQ7YCYdU54"></script>
 </body>
 </html>

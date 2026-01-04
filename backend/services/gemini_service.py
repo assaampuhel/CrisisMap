@@ -252,11 +252,11 @@ def heuristic_adjust_severity(parsed, description):
 
     score = score + urgency_nudge
     score = max(1, min(5, score))
-    if score >= 4.5:
+    if score >= 6:
         final_label = "critical"
-    elif score >= 3.2:
+    elif score >= 3.5:
         final_label = "high"
-    elif score >= 2.2:
+    elif score >= 2.0:
         final_label = "medium"
     else:
         final_label = "low"
@@ -396,73 +396,35 @@ def pretty_format(parsed):
     return "\n".join(out)
 
 
-def generate_action_plan(incidents: list) -> str:
+def generate_action_plan(incidents: list) -> dict:
     """
     Generate a consolidated action plan for multiple incidents.
-    Accepts either:
-      - a list of incident dicts, or
-      - a dict with {"statuses": ["new", ...]} in which case this function will read matching
-        incidents from Firestore (processed_incidents) and generate the plan for those.
-    Returns a string (pretty JSON or plain text) suitable for placing into the admin UI.
+    Expects a list of incident dicts (already analyzed).
+    Returns a dict with keys: summary, route (list), resources (list).
+    On Gemini failure, returns a reasonable fallback plan built locally.
     """
-
-    # If caller passed a dict with statuses, fetch incidents from Firestore
-    if isinstance(incidents, dict) and "statuses" in incidents:
-        try:
-            from firebase_admin import firestore as _fb
-            db = _fb.client()
-            statuses = incidents.get("statuses", [])
-            docs = []
-            if statuses:
-                # Firestore 'in' queries accept list of up to 10; this is fine for statuses set.
-                q = db.collection("processed_incidents").where("status", "in", statuses)
-            else:
-                q = db.collection("processed_incidents")
-            docs_iter = q.stream()
-            for d in docs_iter:
-                doc = d.to_dict()
-                # normalize keys we expect
-                doc["_id"] = d.id
-                docs.append(doc)
-            incidents_list = docs
-        except Exception as e:
-            # If Firestore read fails, return a clear error string
-            return json.dumps({
-                "error": "Failed to fetch incidents for statuses",
-                "reason": str(e)
-            }, indent=2)
-    elif isinstance(incidents, list):
-        incidents_list = incidents
-    else:
-        return json.dumps({
-            "error": "Invalid input to generate_action_plan. Provide a list of incidents or {statuses:[...]}."
-        }, indent=2)
-
-    if not incidents_list:
-        return json.dumps({
+    if not incidents:
+        return {
             "summary": "No active incidents to generate a plan.",
             "route": [],
             "resources": []
-        }, indent=2)
+        }
 
-    # Sort by severity + urgency (high first)
+    # Sort by severity + urgency
     severity_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
-    try:
-        incidents_sorted = sorted(
-            incidents_list,
-            key=lambda x: (
-                severity_rank.get((x.get("analysis") or {}).get("severity", "medium"), 2),
-                (x.get("analysis") or {}).get("urgency_score", 0)
-            ),
-            reverse=True
-        )
-    except Exception:
-        incidents_sorted = incidents_list
+    incidents_sorted = sorted(
+        incidents,
+        key=lambda x: (
+            severity_rank.get(x.get("analysis", {}).get("severity", "medium"), 2),
+            x.get("analysis", {}).get("urgency_score", 0)
+        ),
+        reverse=True
+    )
 
-    # Simplify for the model and for a driver-friendly plan
+    # Build simplified input for Gemini
     simplified = []
     for it in incidents_sorted:
-        a = it.get("analysis", {}) or {}
+        a = it.get("analysis", {})
         simplified.append({
             "location": it.get("location"),
             "lat": it.get("lat"),
@@ -476,7 +438,7 @@ def generate_action_plan(incidents: list) -> str:
 You are an emergency operations planner.
 
 Given these active incidents (sorted by priority), generate:
-1. An optimal visitation order (route) with reasons
+1. An optimal visitation order (route)
 2. Required resources (vehicles, medical kits, boats, food, etc.)
 3. A concise execution summary
 
@@ -501,52 +463,33 @@ Return ONLY valid JSON in this format:
     try:
         resp = model.generate_content(prompt)
         text = resp.text.strip()
-        # Try to extract JSON
-        m = re.search(r'(\{.*\})', text, flags=re.S)
-        if m:
-            parsed = json.loads(m.group(1))
-            # Return pretty JSON string so frontend can display it
-            return json.dumps(parsed, indent=2)
-        # If model didn't return JSON, return the raw text wrapped in a field
-        return json.dumps({"summary": text}, indent=2)
+
+        # extract JSON safely
+        match = re.search(r'(\{.*\})', text, re.S)
+        if match:
+            parsed = json.loads(match.group(1))
+            return parsed
+
+        # if not JSON, still return text summary
+        return {"summary": text, "route": [], "resources": []}
+
     except Exception as e:
-        # Fallback deterministic plan: order by severity and geo-closeness (simple)
+        # fallback plan generator (local)
         try:
-            # Build a simple greedy route and resource list
-            ordered = []
-            coords = []
-            for s in simplified:
-                if s.get("lat") is not None and s.get("lng") is not None:
-                    coords.append(s)
-            if not coords:
-                # No geo points: fallback to textual plan
-                fallback = {
-                    "summary": "Model generation failed; please manually review incidents. Error: " + str(e),
-                    "route": simplified,
-                    "resources": ["standard rescue kit", "medical kit"]
-                }
-                return json.dumps(fallback, indent=2)
-            # greedy nearest neighbor from first coord
-            pts = coords[:]
-            ordered_pts = [pts.pop(0)]
-            while pts:
-                last = ordered_pts[-1]
-                best_idx = 0
-                best_d = None
-                for idx, c in enumerate(pts):
-                    dx = (c["lat"] - last["lat"])
-                    dy = (c["lng"] - last["lng"])
-                    d = dx*dx + dy*dy
-                    if best_d is None or d < best_d:
-                        best_d = d
-                        best_idx = idx
-                ordered_pts.append(pts.pop(best_idx))
-            route = [{"location": p["location"], "lat": p["lat"], "lng": p["lng"], "reason": f"Severity={p.get('severity')}, affected={p.get('affected')}"} for p in ordered_pts]
-            fallback = {
-                "summary": "Model failed; returned deterministic fallback route.",
+            route = []
+            for it in incidents_sorted:
+                a = it.get("analysis", {})
+                route.append({
+                    "location": it.get("location"),
+                    "lat": it.get("lat"),
+                    "lng": it.get("lng"),
+                    "reason": f"Priority {a.get('severity','n/a')}"
+                })
+            resources = ["Ambulance", "Rescue Boat"] if any(has_keyword((i.get("description") or ""), ["boat","drowning","sinking","sea"]) for i in incidents_sorted) else ["Ambulance", "Medical Kit"]
+            return {
+                "summary": f"(Fallback plan) Model failed: {str(e)}",
                 "route": route,
-                "resources": ["standard rescue kit", "medical kit", "water"]
+                "resources": resources
             }
-            return json.dumps(fallback, indent=2)
         except Exception as e2:
-            return json.dumps({"error": "Plan generation failed", "reason": str(e), "fallback_error": str(e2)}, indent=2)
+            return {"summary": f"Failed to generate plan: {e2}", "route": [], "resources": []}

@@ -4,84 +4,127 @@
   <meta charset="utf-8" />
   <title>CrisisMap — Report an Emergency</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">
-      <div class="logo">🚨</div>
-      <div>
-        <h1>CrisisMap</h1>
-        <div class="tag">Report hazards • Get help faster</div>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="logo notranslate">🚨</div>
+        <div>
+          <h1>CrisisMap</h1>
+          <div class="tag">Citizen Reporting Interface</div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="page-translate">
+          <select id="pageTranslateSelect" aria-label="Select Language">
+            <option value="">🌐 Translate</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="kn">Kannada</option>
+            <option value="mr">Marathi</option>
+            <option value="ta">Tamil</option>
+            <option value="te">Telugu</option>
+            <option value="ur">Urdu</option>
+          </select>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="container">
-    <section class="left-col">
-      <div class="card">
-        <h2 class="card-title">Where is the incident?</h2>
+    <div class="grid-layout">
+      <section class="left-col">
+        <div class="card map-card">
+          <div class="card-header">
+            <h2 class="card-title">Incident Location</h2>
+            <p class="card-subtitle">Where is help needed?</p>
+          </div>
 
-        <div class="map-controls">
-          <input id="placeSearch" placeholder="Search a place or address" aria-label="Search place" />
-          <button id="locBtn" title="Use my current location">📍 My location</button>
+          <div class="map-wrapper">
+            <div class="map-controls">
+              <input id="placeSearch" placeholder="🔍 Search area..." aria-label="Search place" />
+              <button id="locBtn" title="Use my current location">📍 My Location</button>
+            </div>
+            <div id="map" class="map"></div>
+            <div class="map-hint">
+              <span>ℹ️ Drag the pin to the exact location.</span>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div id="map" class="map"></div>
-
-        <p class="hint">Drag the pin to refine the exact spot.</p>
-      </div>
-    </section>
-
-    <section class="right-col">
-      <div class="card">
-        <h2 class="card-title">Report details</h2>
-
-        <form id="reportForm" class="report-form">
-
-          <label for="nameInput">Your Name</label>
-          <input id="nameInput" name="name" placeholder="Full name" required />
-
-          <label for="phoneInput">Phone Number</label>
-          <input id="phoneInput" name="phone" type="tel" placeholder="+91 98765 43210" required />
-
-          <label for="emailInput">Email (optional)</label>
-          <input id="emailInput" name="email" type="email" placeholder="you@email.com" />
-
-          <label for="locationInput">Location name / Address</label>
-          <input id="locationInput" name="location" placeholder="Neighborhood, street or address" />
-
-          <label for="descriptionInput">Description</label>
-          <div class="desc-row">
-            <textarea
-              id="descriptionInput"
-              name="description"
-              placeholder="What happened? (who is affected, hazards, injuries, etc.)"
-              required
-            ></textarea>
-            <button type="button" id="micBtn" class="mic" title="Speak description">🎤</button>
+      <section class="right-col">
+        <div class="card form-card">
+          <div class="card-header">
+            <h2 class="card-title">Incident Details</h2>
+            <p class="card-subtitle">Please provide accurate info.</p>
           </div>
 
-          <label for="imageInput">Photo (optional)</label>
-          <input id="imageInput" name="image" type="file" accept="image/*" />
+          <form id="reportForm" class="report-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="nameInput">Your Name</label>
+                <input id="nameInput" name="name" placeholder="Full name" required />
+              </div>
+              <div class="form-group">
+                <label for="phoneInput">Phone Number</label>
+                <input id="phoneInput" name="phone" type="tel" placeholder="+91..." required />
+              </div>
+            </div>
 
-          <div class="actions">
-            <button id="submitBtn" type="submit" class="btn btn-primary">
-              Submit Report
-            </button>
+            <div class="form-group">
+              <label for="emailInput">Email (Optional)</label>
+              <input id="emailInput" name="email" type="email" placeholder="you@email.com" />
+            </div>
+
+            <div class="form-group">
+              <label for="locationInput">Address / Landmark</label>
+              <input id="locationInput" name="location" placeholder="e.g. Near Central Station, Main St." />
+            </div>
+
+            <div class="form-group">
+              <label for="descriptionInput">Description of Emergency</label>
+              <div class="desc-row">
+                <textarea
+                  id="descriptionInput"
+                  name="description"
+                  placeholder="Describe hazards, injuries, or trapped persons..."
+                  required
+                ></textarea>
+                
+                <button type="button" id="micBtn" class="mic" title="Tap to Speak">
+                  <span class="mic-icon notranslate">🎤</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="imageInput">Photo Evidence (Optional)</label>
+              <div class="file-input-wrapper">
+                <input id="imageInput" name="image" type="file" accept="image/*" />
+              </div>
+            </div>
+
+            <div class="actions">
+              <button id="submitBtn" type="submit" class="btn btn-primary btn-block">
+                Submit Report
+              </button>
+            </div>
             <div id="status" class="status"></div>
-          </div>
-        </form>
-      </div>
-    </section>
+          </form>
+        </div>
+      </section>
+    </div>
   </main>
 
-  <!-- toast area will be injected dynamically -->
+  <script src="../translate.js"></script>
   <script src="map.js"></script>
   <script src="form.js"></script>
-
-  <!-- Replace YOUR_GOOGLE_MAPS_API_KEY with your API key; include places library -->
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=APIKEY&libraries=places&callback=initMap"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-ycerXN_MAc5A09sy3tPgZaQ7YCYdU54&libraries=places&callback=initMap"></script>
 </body>
 </html>

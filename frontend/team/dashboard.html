@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Rescue Team — CrisisMap</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-wrap">
+    <header class="app-header">
+      <div class="brand">
+        <h1>CrisisMap Team</h1>
+        <div class="team-badge" id="teamLabel">Loading...</div>
+      </div>
+
+      <!-- Tabs + actions (tabs added, UI styling unchanged) -->
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="tabs" style="display:flex;gap:8px;align-items:center;margin-right:10px">
+          <button id="assignedTabBtn" class="btn btn-ghost" aria-pressed="true">Assigned Missions</button>
+          <button id="archiveTabBtn" class="btn btn-ghost" aria-pressed="false">Completed (Archive)</button>
+        </div>
+        <button id="updateLocationBtn" class="btn btn-ghost">Update location</button>
+        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
+      </div>
+    </header>
+
+    <main class="dashboard-main">
+      <h2 class="section-title" id="sectionTitle">Assigned Missions</h2>
+
+      <!-- Assigned missions list -->
+      <section id="dispatchList" class="mission-grid"></section>
+
+      <!-- Archive list (hidden by default; shown when user switches to Archive tab) -->
+      <section id="archiveList" class="mission-grid" style="display:none; margin-top:20px;"></section>
+    </main>
+  </div>
+
+  <div id="dispatchModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+         <h2 id="dispTitle">Mission Details</h2>
+         <button class="modal-close" id="dispatchClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="dispMeta" class="meta-tags"></div>
+
+        <div class="plan-box">
+          <label>AI Generated Strategy</label>
+          <pre id="dispPlan"></pre>
+        </div>
+
+        <h3>Incidents in this Dispatch</h3>
+        <div id="dispIncidents" class="incident-stack"></div>
+
+        <div id="modalActions" class="action-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-ycerXN_MAc5A09sy3tPgZaQ7YCYdU54"></script>
+
+  <!-- Inline helper to call location update quickly (keeps existing behaviour) -->
+  <script>
+  document.getElementById("updateLocationBtn")?.addEventListener("click", () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        // teamUpdateLocation is defined in dashboard.js and is global
+        if (typeof teamUpdateLocation === "function") {
+          teamUpdateLocation(pos.coords.latitude, pos.coords.longitude);
+        } else {
+          // fallback if function not ready
+          fetch(`${API_BASE || "http://127.0.0.1:5000"}/api/team/update-location`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-team-token": localStorage.getItem("team_token") },
+            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          }).then(()=> alert("Location update requested")).catch(()=> alert("Location update failed"));
+        }
+      }, (err) => {
+        if (typeof teamUpdateLocation === "function") {
+          teamUpdateLocation(13.0108, 74.7943);
+        }
+      }, { timeout: 8000 });
+    } else {
+      if (typeof teamUpdateLocation === "function") teamUpdateLocation(13.0108, 74.7943);
+    }
+  });
+  </script>
+</body>
+</html>

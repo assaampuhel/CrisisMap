@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Team Login — CrisisMap</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <style>
+     body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #f1f5f9; }
+     .login-box { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+     h2 { margin-top: 0; color: var(--accent); }
+     input { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; }
+     label { font-size: 14px; font-weight: 600; color: #475569; }
+     .btn-block { width: 100%; padding: 12px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Team Login</h2>
+    <p class="muted" style="margin-bottom: 24px;">Enter your credentials to access dispatch orders.</p>
+
+    <label>Team Name</label>
+    <input id="teamName" placeholder="e.g. Coastal Rescue A" />
+
+    <label>Password</label>
+    <input id="teamPass" type="password" placeholder="••••••" />
+
+    <button id="loginBtn" class="btn btn-primary btn-block">Sign In</button>
+    <div id="loginMsg" class="muted" style="margin-top:12px; text-align:center; height: 20px;"></div>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:5000"; // Ensure this matches your setup
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const name = document.getElementById("teamName").value.trim();
+      const password = document.getElementById("teamPass").value;
+      const msg = document.getElementById("loginMsg");
+      msg.textContent = "Verifying...";
+      msg.style.color = "#64748b";
+
+      try {
+        const res = await fetch(`${API_BASE}/api/team/login`, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ name, password })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          msg.textContent = data.error || "Access Denied";
+          msg.style.color = "#dc2626";
+          return;
+        }
+
+        localStorage.setItem("team_token", data.team_token);
+        localStorage.setItem("team_id", data.team_id);
+        localStorage.setItem("team_name", data.team_name || "");
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        msg.textContent = "Server connection failed";
+        msg.style.color = "#dc2626";
+      }
+    });
+  </script>
+</body>
+</html>
