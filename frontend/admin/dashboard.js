@@ -1,5 +1,6 @@
 // frontend/admin/dashboard.js
-// Final corrected admin dashboard.js — defensive, fixes null errors, renders friendly AI plan text.
+// Final corrected admin dashboard.js — defensive, fixes null errors, renders friendly AI plan text,
+// and hides the old assign UI when showing auto-generated dispatches.
 
 const API_BASE = "http://127.0.0.1:5000";
 
@@ -53,6 +54,10 @@ const routeBlock = document.getElementById("routeBlock");
 const downloadPlanBtn = document.getElementById("downloadPlanBtn");
 const refreshTeamsBtn = document.getElementById("refreshTeamsBtn");
 const assignInModalBtn = document.getElementById("assignInModalBtn");
+
+// assign-section container (we will hide it when showing generated dispatches for review)
+const assignSection = document.querySelector("#planModal .assign-section");
+const planFriendlyEl = document.getElementById("planFriendly");
 
 const logoutBtn = document.getElementById("logoutBtn");
 logoutBtn?.addEventListener("click", () => {
@@ -484,6 +489,7 @@ assignInModalBtn?.addEventListener("click", async () => {
     }
 
     if (data.dispatch_id) {
+      // show the created dispatch so admin can review it
       renderDispatchesInModal([{ team_id: data.team_id, dispatch_id: data.dispatch_id, count: (data.incidents||[]).length, plan_text: data.plan, incidents: (data.incidents || []) }]);
     } else {
       planText.textContent = typeof data.plan === "string" ? data.plan : JSON.stringify(data.plan || data, null, 2);
@@ -506,7 +512,8 @@ assignInModalBtn?.addEventListener("click", async () => {
 planClose?.addEventListener("click", () => planModal && planModal.classList.add("hidden"));
 
 downloadPlanBtn?.addEventListener("click", () => {
-  const content = planText?.textContent || document.getElementById("planFriendly")?.textContent || "No plan to download";
+  // fallback generic download: if planFriendly has text, download that; else planText
+  const content = (planFriendlyEl && planFriendlyEl.textContent && planFriendlyEl.textContent.trim()) ? planFriendlyEl.textContent : (planText?.textContent || "No plan to download");
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -524,11 +531,38 @@ downloadPlanBtn?.addEventListener("click", () => {
 function renderDispatchesInModal(dispatches) {
   const friendly = document.getElementById("planFriendly");
   if (!friendly) return;
+
+  // HIDE assign UI when showing generated dispatches for review
+  if (assignSection) assignSection.style.display = "none";
+  if (teamSelect) teamSelect.style.display = "none";
+  if (teamGrid) teamGrid.style.display = "none";
+  if (assignInModalBtn) assignInModalBtn.style.display = "none";
+
   friendly.innerHTML = "";
 
   if (!dispatches || dispatches.length === 0) {
     friendly.innerHTML = "<div class='muted'>No dispatches were created.</div>";
     return;
+  }
+
+  // Build downloadable combined text when Download is pressed
+  if (downloadPlanBtn) {
+    downloadPlanBtn.onclick = () => {
+      const allTextParts = dispatches.map(d => {
+        const planObj = d.plan_text ? (typeof d.plan_text === "string" ? tryParseJSON(d.plan_text) : d.plan_text) : null;
+        return planToHumanText(planObj, d.dispatch_id, d.team_id);
+      });
+      const allText = allTextParts.join("\n\n----------------------------------------\n\n");
+      const blob = new Blob([allText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dispatches_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
   }
 
   dispatches.forEach(d => {
@@ -545,27 +579,7 @@ function renderDispatchesInModal(dispatches) {
     const title = document.createElement("div");
     title.innerHTML = `<strong>Dispatch ${escapeHtml(d.dispatch_id || "(n/a)")}</strong><div class="muted small">Team: ${escapeHtml(teamName)} • ${escapeHtml(String(d.count || (d.incidents||[]).length))} incidents</div>`;
 
-    const actions = document.createElement("div");
-    const dl = document.createElement("button");
-    dl.className = "btn btn-ghost";
-    dl.textContent = "Download";
-    dl.addEventListener("click", () => {
-      const planObj = d.plan_text ? (typeof d.plan_text === "string" ? tryParseJSON(d.plan_text) : d.plan_text) : null;
-      const text = planToHumanText(planObj, d.dispatch_id, d.team_id);
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${d.dispatch_id || "dispatch"}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-    actions.appendChild(dl);
-
     header.appendChild(title);
-    header.appendChild(actions);
     wrapper.appendChild(header);
 
     // incidents list ordered by plan route if available

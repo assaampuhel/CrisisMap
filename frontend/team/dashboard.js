@@ -348,7 +348,7 @@ async function openDispatch(d) {
 
       const mapLink = (lat && lng) ? `<a href="https://www.google.com/maps?q=${lat},${lng}&z=16" target="_blank" class="btn btn-ghost" style="margin-left:8px">Open map</a>` : "";
 
-      // visual tick for completed (small check mark) — inline so no CSS change needed
+      // visual tick for completed (small check mark)
       const completedTick = (status === "closed") ? `<span title="Completed" style="display:inline-block;margin-left:8px;font-weight:700;color:#0f5132">✓</span>` : "";
 
       // Reporter info and full user description / AI follow-up questions
@@ -415,7 +415,7 @@ async function openDispatch(d) {
     const dl = document.createElement("button");
     dl.className = "btn btn-ghost";
     dl.textContent = "Download plan (text)";
-    dl.addEventListener("click", () => {
+    dl.addEventListener("click", async () => {
       const content = typeof parsedPlan === "string" ? parsedPlan : parsedPlan || d.plan_text || d;
       const text = planToHumanText(content, d.dispatch_id, d.team_id);
       const blob = new Blob([text], {type: "text/plain;charset=utf-8"});
@@ -454,8 +454,9 @@ async function teamUpdateIncident(dispatch_id, incident_id, new_status, incident
       return;
     }
 
-    // After updating, check whether entire dispatch should be archived
-    await checkAndArchiveDispatch(dispatch_id);
+    // Immediately attempt an archival check using the latest known info.
+    // We pass the updated incident id + status so we don't rely exclusively on eventual consistency.
+    await checkAndArchiveDispatch(dispatch_id, { updatedIncidentId: incident_id, updatedStatus: new_status });
 
     // Refresh and close modal
     await loadDispatches();
@@ -466,44 +467,108 @@ async function teamUpdateIncident(dispatch_id, incident_id, new_status, incident
   }
 }
 
-// Check backend incidents for dispatch and archive whole dispatch if all closed
-async function checkAndArchiveDispatch(dispatch_id) {
+/**
+ * Robust dispatch archival checker.
+ * - Always tries to fetch dispatch doc first.
+ * - Builds list of incident IDs from dispatch doc.
+ * - Fetches global incidents and maps statuses, but will override status for
+ *   updatedIncidentId (if provided) to avoid timing issues.
+ *
+ * @param {string} dispatch_id
+ * @param {object} opts optional { updatedIncidentId, updatedStatus }
+ */
+async function checkAndArchiveDispatch(dispatch_id, opts = {}) {
   try {
-    // fetch all incidents to see statuses
-    const res = await fetch(`${API_BASE}/api/incidents`);
-    if (!res.ok) return;
-    const all = await res.json();
-    const dispatchIncidents = (Array.isArray(all) ? all : []).filter(i => i && (i.dispatch_id === dispatch_id || i.dispatch === dispatch_id || i._id === (i._id)));
-    if (!dispatchIncidents || dispatchIncidents.length === 0) {
-      // fallback: check dispatch doc directly
-      const docRes = await fetch(`${API_BASE}/api/team/dispatches/${dispatch_id}`, {
-        headers: { "x-team-token": token }
-      });
-      if (!docRes.ok) return;
-      const doc = await docRes.json();
-      const docInc = Array.isArray(doc.incidents) ? doc.incidents : [];
-      const allClosedDoc = docInc.length > 0 && docInc.every(it => String((it.status || "")).toLowerCase() === "closed");
-      if (allClosedDoc) addDispatchToArchive(doc);
-      return;
+    const { updatedIncidentId, updatedStatus } = opts || {};
+
+    // fetch the authoritative dispatch doc (team-auth required)
+    const docRes = await fetch(`${API_BASE}/api/team/dispatches/${dispatch_id}`, {
+      headers: { "x-team-token": token }
+    });
+
+    let dispatchDoc = null;
+    if (docRes.ok) {
+      dispatchDoc = await docRes.json();
     }
 
-    const allClosed = dispatchIncidents.every(it => String((it.status || "")).toLowerCase() === "closed");
-    if (allClosed) {
-      const docRes = await fetch(`${API_BASE}/api/team/dispatches/${dispatch_id}`, {
-        headers: { "x-team-token": token }
+    // if we have a dispatch doc, prefer the incident ids from it
+    let incidentIds = [];
+    if (dispatchDoc && Array.isArray(dispatchDoc.incidents) && dispatchDoc.incidents.length) {
+      incidentIds = dispatchDoc.incidents.map(i => i && (i._id || i.id)).filter(Boolean);
+    }
+
+    // if no incidentIds from dispatch doc, fallback to scanning global incidents for dispatch reference
+    if (!incidentIds.length) {
+      const allRes = await fetch(`${API_BASE}/api/incidents`);
+      if (!allRes.ok) {
+        // can't check statuses; abort
+        return;
+      }
+      const all = await allRes.json();
+      // filter those referencing dispatch_id in common fields
+      const related = (Array.isArray(all) ? all : []).filter(i => {
+        if (!i) return false;
+        const di = String(i.dispatch_id || i.dispatch || "").trim();
+        return di && di === dispatch_id;
       });
-      if (!docRes.ok) {
+      incidentIds = related.map(i => i._id).filter(Boolean);
+      // if still empty, abort
+      if (!incidentIds.length) {
+        return;
+      }
+    }
+
+    // fetch global incidents once and map by id
+    const allRes2 = await fetch(`${API_BASE}/api/incidents`);
+    if (!allRes2.ok) {
+      // fallback: if dispatchDoc had statuses and all closed, archive
+      if (dispatchDoc && Array.isArray(dispatchDoc.incidents) && dispatchDoc.incidents.length) {
+        const allClosedDoc = dispatchDoc.incidents.every(it => String((it.status || "")).toLowerCase() === "closed");
+        if (allClosedDoc) addDispatchToArchive(dispatchDoc);
+      }
+      return;
+    }
+    const allIncidents = await allRes2.json();
+    const map = {};
+    if (Array.isArray(allIncidents)) {
+      allIncidents.forEach(i => { if (i && i._id) map[i._id] = i; });
+    }
+
+    // Build a status list for relevant incidentIds, overriding with updatedStatus if needed
+    const statuses = incidentIds.map(id => {
+      if (!id) return null;
+      if (updatedIncidentId && String(id) === String(updatedIncidentId)) {
+        return String(updatedStatus || "").toLowerCase();
+      }
+      const inc = map[id];
+      if (!inc) {
+        // if not present in global incidents, see if dispatchDoc holds status
+        if (dispatchDoc) {
+          const di = (dispatchDoc.incidents || []).find(x => (x._id || x.id) == id);
+          if (di && di.status) return String(di.status).toLowerCase();
+        }
+        return null;
+      }
+      return String(inc.status || "").toLowerCase();
+    });
+
+    // if any status is null/undefined, treat as not closed
+    const allClosed = statuses.length > 0 && statuses.every(s => s === "closed");
+
+    if (allClosed) {
+      // prefer archiving using the dispatch doc if available; otherwise save minimal info
+      if (dispatchDoc) {
+        addDispatchToArchive(dispatchDoc);
+      } else {
+        // create minimal archive entry
         addDispatchToArchive({
-          dispatch_id: dispatch_id,
+          dispatch_id,
           created_at: new Date().toISOString(),
           team_id: teamIdStored || "",
           plan_text: "(archived - dispatch doc not available)",
-          incidents: dispatchIncidents
+          incidents: incidentIds.map(id => ({ _id: id, status: "closed" }))
         });
-        return;
       }
-      const dispatchDoc = await docRes.json();
-      addDispatchToArchive(dispatchDoc);
     }
   } catch (e) {
     console.warn("checkAndArchiveDispatch failed", e);
