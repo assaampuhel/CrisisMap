@@ -1,6 +1,6 @@
 // frontend/admin/dashboard.js
-// Final corrected admin dashboard.js — defensive, fixes null errors, renders friendly AI plan text,
-// and hides the old assign UI when showing auto-generated dispatches.
+// Updated admin dashboard: shows team "Last seen" (clickable -> Google Maps).
+// Replace your existing frontend/admin/dashboard.js with this file.
 
 const API_BASE = "http://127.0.0.1:5000";
 
@@ -55,10 +55,6 @@ const downloadPlanBtn = document.getElementById("downloadPlanBtn");
 const refreshTeamsBtn = document.getElementById("refreshTeamsBtn");
 const assignInModalBtn = document.getElementById("assignInModalBtn");
 
-// assign-section container (we will hide it when showing generated dispatches for review)
-const assignSection = document.querySelector("#planModal .assign-section");
-const planFriendlyEl = document.getElementById("planFriendly");
-
 const logoutBtn = document.getElementById("logoutBtn");
 logoutBtn?.addEventListener("click", () => {
   localStorage.removeItem("admin_token");
@@ -81,6 +77,17 @@ function escapeHtml(s){
 function tryParseJSON(s) {
   if (!s || typeof s !== "string") return s;
   try { return JSON.parse(s); } catch (e) { return s; }
+}
+
+function formatIsoLocal(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString();
+  } catch (e) {
+    return iso;
+  }
 }
 
 /* =========================
@@ -323,6 +330,7 @@ statusFilter?.addEventListener("change", applyFiltersAndRender);
 
 /* -------------------------
    TEAMS: load, sidebar, grid
+   - shows last-known location (click -> Google Maps)
    ------------------------- */
 async function loadTeams() {
   try {
@@ -366,6 +374,12 @@ async function loadTeams() {
   }
 }
 
+function createMapLink(lat, lng) {
+  if (lat == null || lng == null || lat === "" || lng === "") return "";
+  const q = encodeURIComponent(`${lat},${lng}`);
+  return `https://www.google.com/maps?q=${q}&z=16`;
+}
+
 function renderTeamsSidebar(teams) {
   if (!teamsListEl) return;
   teamsListEl.innerHTML = "";
@@ -378,14 +392,24 @@ function renderTeamsSidebar(teams) {
     const statusLabel = activeCount > 0 ? "Busy" : "Ready";
     const statusClass = activeCount > 0 ? "badge status-rescue_dispatched" : "badge status-new";
 
+    // last seen / location
+    const lat = (t.base_lat != null) ? t.base_lat : null;
+    const lng = (t.base_lng != null) ? t.base_lng : null;
+    const updated = t.updated_at || t.base_updated || t.updatedAt || null;
+    const lastSeenText = (lat != null && lng != null) ? `Last seen: ${formatIsoLocal(updated) || "recently"}` : "";
+
+    const mapLink = (lat != null && lng != null) ? createMapLink(lat, lng) : "";
+
     const item = document.createElement("div");
     item.className = "team-item card";
     item.style.marginBottom = "8px";
+
     item.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-weight:700">${escapeHtml(t.name)}</div>
           <div class="muted small">${escapeHtml(t.contact || "")}</div>
+          ${ lastSeenText ? `<div class="muted small" style="margin-top:6px"><a href="${mapLink}" target="_blank" rel="noopener" title="Open last known location in Maps">${escapeHtml(lastSeenText)}</a></div>` : "" }
         </div>
         <div style="text-align:right">
           <div class="${statusClass}" style="padding:6px 8px;border-radius:8px;font-weight:700">${statusLabel}</div>
@@ -415,7 +439,18 @@ function renderTeamsGrid(teams) {
     card.className = "card team-card";
     card.style.cursor = "pointer";
     card.dataset.teamId = t._id;
-    card.innerHTML = `<strong>${escapeHtml(t.name)}</strong><div class="muted small" style="margin-top:6px">${escapeHtml(t.contact || "")}</div>`;
+
+    // small last seen text + map link
+    const lat = (t.base_lat != null) ? t.base_lat : null;
+    const lng = (t.base_lng != null) ? t.base_lng : null;
+    const updated = t.updated_at || t.base_updated || t.updatedAt || null;
+    const lastSeenText = (lat != null && lng != null) ? `Last seen: ${formatIsoLocal(updated) || "recently"}` : "";
+    const mapLink = (lat != null && lng != null) ? createMapLink(lat, lng) : "";
+
+    card.innerHTML = `<strong>${escapeHtml(t.name)}</strong>
+                      <div class="muted small" style="margin-top:6px">${escapeHtml(t.contact || "")}</div>
+                      ${ lastSeenText ? `<div class="muted small" style="margin-top:6px"><a href="${mapLink}" target="_blank" rel="noopener">${escapeHtml(lastSeenText)}</a></div>` : "" }`;
+
     card.addEventListener("click", () => {
       SELECTED_TEAM = t._id;
       if (teamSelect) teamSelect.value = t._id;
@@ -489,7 +524,6 @@ assignInModalBtn?.addEventListener("click", async () => {
     }
 
     if (data.dispatch_id) {
-      // show the created dispatch so admin can review it
       renderDispatchesInModal([{ team_id: data.team_id, dispatch_id: data.dispatch_id, count: (data.incidents||[]).length, plan_text: data.plan, incidents: (data.incidents || []) }]);
     } else {
       planText.textContent = typeof data.plan === "string" ? data.plan : JSON.stringify(data.plan || data, null, 2);
@@ -512,8 +546,7 @@ assignInModalBtn?.addEventListener("click", async () => {
 planClose?.addEventListener("click", () => planModal && planModal.classList.add("hidden"));
 
 downloadPlanBtn?.addEventListener("click", () => {
-  // fallback generic download: if planFriendly has text, download that; else planText
-  const content = (planFriendlyEl && planFriendlyEl.textContent && planFriendlyEl.textContent.trim()) ? planFriendlyEl.textContent : (planText?.textContent || "No plan to download");
+  const content = planText?.textContent || document.getElementById("planFriendly")?.textContent || "No plan to download";
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -531,38 +564,11 @@ downloadPlanBtn?.addEventListener("click", () => {
 function renderDispatchesInModal(dispatches) {
   const friendly = document.getElementById("planFriendly");
   if (!friendly) return;
-
-  // HIDE assign UI when showing generated dispatches for review
-  if (assignSection) assignSection.style.display = "none";
-  if (teamSelect) teamSelect.style.display = "none";
-  if (teamGrid) teamGrid.style.display = "none";
-  if (assignInModalBtn) assignInModalBtn.style.display = "none";
-
   friendly.innerHTML = "";
 
   if (!dispatches || dispatches.length === 0) {
     friendly.innerHTML = "<div class='muted'>No dispatches were created.</div>";
     return;
-  }
-
-  // Build downloadable combined text when Download is pressed
-  if (downloadPlanBtn) {
-    downloadPlanBtn.onclick = () => {
-      const allTextParts = dispatches.map(d => {
-        const planObj = d.plan_text ? (typeof d.plan_text === "string" ? tryParseJSON(d.plan_text) : d.plan_text) : null;
-        return planToHumanText(planObj, d.dispatch_id, d.team_id);
-      });
-      const allText = allTextParts.join("\n\n----------------------------------------\n\n");
-      const blob = new Blob([allText], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `dispatches_${Date.now()}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    };
   }
 
   dispatches.forEach(d => {
@@ -579,7 +585,27 @@ function renderDispatchesInModal(dispatches) {
     const title = document.createElement("div");
     title.innerHTML = `<strong>Dispatch ${escapeHtml(d.dispatch_id || "(n/a)")}</strong><div class="muted small">Team: ${escapeHtml(teamName)} • ${escapeHtml(String(d.count || (d.incidents||[]).length))} incidents</div>`;
 
+    const actions = document.createElement("div");
+    const dl = document.createElement("button");
+    dl.className = "btn btn-ghost";
+    dl.textContent = "Download";
+    dl.addEventListener("click", () => {
+      const planObj = d.plan_text ? (typeof d.plan_text === "string" ? tryParseJSON(d.plan_text) : d.plan_text) : null;
+      const text = planToHumanText(planObj, d.dispatch_id, d.team_id);
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${d.dispatch_id || "dispatch"}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+    actions.appendChild(dl);
+
     header.appendChild(title);
+    header.appendChild(actions);
     wrapper.appendChild(header);
 
     // incidents list ordered by plan route if available

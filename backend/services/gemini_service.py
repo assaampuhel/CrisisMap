@@ -36,7 +36,7 @@ if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not found in environment")
 
 genai.configure(api_key=GEMINI_API_KEY)
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-2.5-pro"
 model = genai.GenerativeModel(MODEL_NAME)
 
 # ML persistence path
