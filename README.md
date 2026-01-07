@@ -18,22 +18,16 @@ This project is built for **hackathons, emergency simulations, and disaster-mana
 2. [Problem Statement](#problem-statement)
 3. [Solution Summary](#solution-summary)
 4. [Key Features](#key-features)
-5. System Architecture
+5. [System Architecture](#system-architecture)
 6. [Technology Stack](#technology-stack)
 7. [Project Structure](#project-structure)
-8. Installation & Setup
-9. Running the Application
-10. Machine Learning Models
-11. Using the Application
-12. Google Cloud & Firestore Setup
-13. Deployment Options
-14. Troubleshooting
-15. Security Notes
-16. Team
+8. [Installation & Setup](#installation--setup)
+9. [Running the Application](#running-the-application)
+10. [Team](#-team)
 
 ---
 
-## Overview
+## 👀 Overview
 
 During emergencies, delays in understanding **what happened**, **how severe it is**, and **which team should respond** can cost lives.
 
@@ -46,17 +40,17 @@ CrisisMap solves this by:
 
 ---
 
-## Problem Statement
+## ❓ Problem Statement
 
 Traditional emergency workflows suffer from:
 - Manual triaging of incidents
 - No real-time team location awareness
 - Poor prioritization during high-load scenarios
-- Fragmented communication between responders and command centers
+- Fragmented communication between responders and command centers 
 
 ---
 
-## Solution Summary
+## 𝌣 Solution Summary
 
 CrisisMap introduces an **AI and ML driven command center** that:
 - Converts raw reports into structured intelligence
@@ -67,7 +61,7 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ---
 
-## Key Features
+## ✨ Key Features
 
 ### Citizen Reporting
 - Submit incident description
@@ -93,13 +87,13 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ---
 
-## System Architecture
+## 📦 System Architecture
 
 
 
 ---
 
-## Technology Stack
+## 🗄️ Technology Stack
 
 ### Frontend
 - HTML / CSS / Vanilla JavaScript
@@ -120,7 +114,7 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ---
 
-## Project Structure
+## 🗂️ Project Structure
 
 ```bash
 /requirements.txt
@@ -170,7 +164,7 @@ CrisisMap introduces an **AI and ML driven command center** that:
 /.env
 ```
 
-## Installation & Setup
+## 🚀 Installation & Setup
 
 ### Prerequisites
 - python 3.10
@@ -224,9 +218,14 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcloud-sa.json
 ```
 
 
-### Running the Application
+## ▶️ Running the Application
 
 ```bash
 cd backend
 python app.py
 ```
+
+# 👥 Team
+- [Asaph Samuel](https://github.com/assaampuhel)
+- [Dileep Valluru](https://github.com/Dileep1408)
+- [Sai Varun Tej](https://github.com/Sai-Varun-Tej)
