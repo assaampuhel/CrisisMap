@@ -7,7 +7,7 @@
   --sidebar-w: 280px;
 }
 
-body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;}
 * { box-sizing: border-box; }
 
 .admin-layout { display: flex; height: 100vh; }

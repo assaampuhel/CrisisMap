@@ -7,7 +7,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <style>
-     body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #f1f5f9; }
+     body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #f1f5f9; 
+      background-image: 
+      linear-gradient(rgba(100, 116, 139, 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100, 116, 139, 0.3) 1px, transparent 1px),
+      linear-gradient(rgba(248, 250, 252, 0.85), rgba(248, 250, 252, 0.85)), /* Adjust 0.85 to make image clearer/fainter */
+      url('../assets/background_img.jpg');
+      background-size:40px 40px, 40px 40px, cover,cover;
+    }
      .login-box { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
      h2 { margin-top: 0; color: var(--accent); }
      input { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; }

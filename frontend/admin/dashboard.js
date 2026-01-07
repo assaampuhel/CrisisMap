@@ -396,7 +396,7 @@ function renderTeamsSidebar(teams) {
     const lat = (t.base_lat != null) ? t.base_lat : null;
     const lng = (t.base_lng != null) ? t.base_lng : null;
     const updated = t.updated_at || t.base_updated || t.updatedAt || null;
-    const lastSeenText = (lat != null && lng != null) ? `Last seen: ${formatIsoLocal(updated) || "recently"}` : "";
+    const lastSeenText = (lat != null && lng != null) ? `Last Location: ${formatIsoLocal(updated) || "recently"}` : "";
 
     const mapLink = (lat != null && lng != null) ? createMapLink(lat, lng) : "";
 
@@ -444,7 +444,7 @@ function renderTeamsGrid(teams) {
     const lat = (t.base_lat != null) ? t.base_lat : null;
     const lng = (t.base_lng != null) ? t.base_lng : null;
     const updated = t.updated_at || t.base_updated || t.updatedAt || null;
-    const lastSeenText = (lat != null && lng != null) ? `Last seen: ${formatIsoLocal(updated) || "recently"}` : "";
+    const lastSeenText = (lat != null && lng != null) ? `Last Location: ${formatIsoLocal(updated) || "recently"}` : "";
     const mapLink = (lat != null && lng != null) ? createMapLink(lat, lng) : "";
 
     card.innerHTML = `<strong>${escapeHtml(t.name)}</strong>
