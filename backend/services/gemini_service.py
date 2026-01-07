@@ -1,10 +1,7 @@
 # backend/services/gemini_service.py
 """
-Gemini helpers with robust JSON parsing and improved ML severity prediction.
-Changes:
-- affected_people_estimate defaults to None if unknown (admin UI shows "Unknown")
-- persistent ML model: trained vectorizer + classifier saved to disk and loaded at startup
-- training uses Firestore labeled dataset if available, otherwise synthetic seed
+Runtime gemini_service: Gemini + heuristics + unified severity ML predictor (if model file present).
+This file deliberately does NOT train models. It attempts to load joblib models from ../models/.
 """
 
 import os
@@ -16,163 +13,82 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-# Gemini SDK (existing)
-import google.generativeai as genai
-
-# Machine learning libraries (optional). If not present, code falls back to heuristics.
+# Optional Gemini SDK use
 try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.model_selection import train_test_split
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash-lite")
+
+if GEMINI_API_KEY and genai is not None:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(MODEL_NAME)
+    except Exception as e:
+        logging.exception("Failed to configure Gemini: %s", e)
+        model = None
+else:
+    model = None
+    logging.info("Gemini not configured or SDK not present; running in fallback mode.")
+
+# Models directory and paths
+MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+SEVERITY_MODEL_PATH = MODELS_DIR / "severity_model.joblib"
+ASSIGNMENT_MODEL_PATH = MODELS_DIR / "assignment_model.joblib"
+
+# ML runtime availability
+try:
     import joblib
+    from sklearn.feature_extraction.text import TfidfVectorizer
     SKLEARN_AVAILABLE = True
 except Exception as e:
     SKLEARN_AVAILABLE = False
-    # We'll continue with heuristics if sklearn not available
     logging.info("sklearn/joblib not available: %s", e)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not found in environment")
-
-genai.configure(api_key=GEMINI_API_KEY)
-MODEL_NAME = "gemini-2.5-pro"
-model = genai.GenerativeModel(MODEL_NAME)
-
-# ML persistence path
-MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
-MODEL_PATH = MODELS_DIR / "severity_model.joblib"
-
-# Globals for ML
-ML_MODEL = None
+# Globals
+SEV_MODEL = None
 VECTORIZER = None
+ASSIGN_MODEL = None
 
-# ---------- ML training / loading utilities ----------
-
-def load_saved_model():
-    global ML_MODEL, VECTORIZER
+# ------------------ model loaders (runtime only) ------------------
+def load_severity_model():
+    """Load the unified severity model (model+vectorizer) if present."""
+    global SEV_MODEL, VECTORIZER
     if not SKLEARN_AVAILABLE:
         return False
+    if SEV_MODEL is not None and VECTORIZER is not None:
+        return True
     try:
-        if MODEL_PATH.exists():
-            data = joblib.load(MODEL_PATH)
-            ML_MODEL = data.get("model")
+        if SEVERITY_MODEL_PATH.exists():
+            data = joblib.load(SEVERITY_MODEL_PATH)
+            SEV_MODEL = data.get("model")
             VECTORIZER = data.get("vectorizer")
-            logging.info("Loaded saved severity model from %s", MODEL_PATH)
+            logging.info("Loaded severity model from %s", SEVERITY_MODEL_PATH)
             return True
     except Exception as e:
-        logging.exception("Failed to load saved model: %s", e)
+        logging.exception("Failed to load severity model: %s", e)
     return False
 
-def save_model_to_disk(model_obj, vectorizer_obj):
+def load_assignment_model():
+    """Load assignment decision model (if exists). Returns model or None."""
+    global ASSIGN_MODEL
     if not SKLEARN_AVAILABLE:
-        return False
+        return None
+    if ASSIGN_MODEL is not None:
+        return ASSIGN_MODEL
     try:
-        joblib.dump({"model": model_obj, "vectorizer": vectorizer_obj}, MODEL_PATH)
-        logging.info("Saved severity model to %s", MODEL_PATH)
-        return True
+        if ASSIGNMENT_MODEL_PATH.exists():
+            ASSIGN_MODEL = joblib.load(ASSIGNMENT_MODEL_PATH)
+            logging.info("Loaded assignment model from %s", ASSIGNMENT_MODEL_PATH)
+            return ASSIGN_MODEL
     except Exception as e:
-        logging.exception("Failed to save model: %s", e)
-        return False
+        logging.exception("Failed to load assignment model: %s", e)
+    return None
 
-def fetch_labeled_examples_from_firestore(limit=1000):
-    """
-    Fetch labeled examples from Firestore collection 'labeled_incidents'.
-    Expected documents: { description: str, label: 'low'|'medium'|'high'|'critical' }
-    Returns lists: texts, labels
-    """
-    try:
-        from firebase_admin import firestore
-        db = firestore.client()
-        docs = db.collection("labeled_incidents").limit(limit).stream()
-        texts = []
-        labels = []
-        for d in docs:
-            doc = d.to_dict()
-            txt = doc.get("description") or doc.get("summary") or ""
-            lbl = doc.get("label")
-            if txt and lbl:
-                texts.append(txt)
-                labels.append(lbl)
-        return texts, labels
-    except Exception as e:
-        logging.info("Could not fetch labeled examples from Firestore: %s", e)
-        return [], []
-
-def build_feature_texts(texts):
-    """
-    Additional feature engineering: could append simple flags to text (children, water, injured, count)
-    For simplicity we just return texts as-is for TF-IDF. Could be extended.
-    """
-    return texts
-
-def train_and_save_model(force_retrain=False):
-    """
-    Train severity model:
-    - If a saved model exists and not force_retrain: load and return True.
-    - Otherwise: attempt to fetch labeled data from Firestore; fall back to synthetic dataset.
-    - Train TF-IDF + LogisticRegression, save to disk.
-    """
-    global ML_MODEL, VECTORIZER
-
-    if not SKLEARN_AVAILABLE:
-        logging.info("sklearn not available; skipping ML training")
-        return False
-
-    # If model exists and no force, just load it
-    if MODEL_PATH.exists() and not force_retrain:
-        return load_saved_model()
-
-    # Fetch labeled data
-    texts, labels = fetch_labeled_examples_from_firestore()
-    if not texts:
-        # synthetic seed dataset (small)
-        texts = [
-            "small crowd, minor water leakage",
-            "two people injured, minor bleeding",
-            "multiple people trapped in boat, urgent",
-            "boat sinking, several children, people drowning",
-            "power outage in one building",
-            "fire inside market, many trapped",
-            "car overturned with injuries",
-            "single fall, minor injury",
-            "people trapped in collapsed building, many injured",
-            "boat stranded, several children and women"
-        ]
-        labels = ["low","medium","high","critical","low","critical","high","medium","critical","high"]
-        logging.info("Using synthetic training dataset (no labeled data found in Firestore)")
-
-    # Feature prep
-    X_texts = build_feature_texts(texts)
-    VECTORIZER = TfidfVectorizer(ngram_range=(1,2), max_features=4000)
-    X = VECTORIZER.fit_transform(X_texts)
-
-    # Train classifier
-    try:
-        ML_MODEL = LogisticRegression(max_iter=1000)
-        ML_MODEL.fit(X, labels)
-        # Save
-        save_model_to_disk(ML_MODEL, VECTORIZER)
-        logging.info("Trained and saved severity ML model (examples=%d)", len(labels))
-        return True
-    except Exception as e:
-        logging.exception("Training failed: %s", e)
-        ML_MODEL = None
-        VECTORIZER = None
-        return False
-
-# Attempt to load or train at import time (best-effort)
-if SKLEARN_AVAILABLE:
-    if not load_saved_model():
-        # try to train (will fallback to synthetic)
-        try:
-            train_and_save_model()
-        except Exception as e:
-            logging.info("Initial train failed: %s", e)
-
-# ---------- existing heuristics and analysis code (minor changes) ----------
-
+# ------------------ utilities ------------------
 NUM_WORDS = {
     "zero":0,"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,
     "eleven":11,"twelve":12,"thirteen":13,"fourteen":14,"fifteen":15,"sixteen":16,"seventeen":17,"eighteen":18,"nineteen":19,"twenty":20
@@ -181,27 +97,23 @@ NUM_WORDS = {
 def extract_count(text):
     if not text:
         return None
-    m = re.search(r'(\d{1,4})\s*(people|persons|ppl|victims|people on board|on board|individuals)?', text, flags=re.I)
+    m = re.search(r'(\d{1,4})\s*(people|persons|ppl|victims|on board|individuals)?', text, flags=re.I)
     if m:
-        try:
-            return int(m.group(1))
-        except:
-            pass
+        try: return int(m.group(1))
+        except: pass
     for w,n in NUM_WORDS.items():
         if re.search(r'\b' + re.escape(w) + r'\b', text, flags=re.I):
             return n
     return None
 
 def has_keyword(text, keywords):
-    if not text:
-        return False
+    if not text: return False
     txt = text.lower()
-    # keywords may be list or single regex-like string
     if isinstance(keywords, (list,tuple)):
         return any(k in txt for k in keywords)
     return re.search(keywords, txt, flags=re.I) is not None
 
-SEV_LABEL_TO_NUM = {"low":1, "medium":2, "high":3, "critical":4}
+SEV_LABEL_TO_NUM = {"low":1,"medium":2,"high":3,"critical":4}
 NUM_TO_SEV_LABEL = {v:k for k,v in SEV_LABEL_TO_NUM.items()}
 
 def heuristic_adjust_severity(parsed, description):
@@ -210,60 +122,42 @@ def heuristic_adjust_severity(parsed, description):
     base_urgency = float(parsed.get("urgency_score") or 0.5)
 
     reported_count = None
-    if parsed.get("affected_people_estimate") is not None and parsed.get("affected_people_estimate") != "":
+    if parsed.get("affected_people_estimate") not in [None, ""]:
         try:
-            # Only accept positive integers
             rc = int(parsed.get("affected_people_estimate"))
-            if rc > 0:
-                reported_count = rc
+            if rc > 0: reported_count = rc
         except:
             reported_count = None
-
     if reported_count is None:
         reported_count = extract_count(description)
 
     children = has_keyword(description, ["child","children","kid","kids","infant","baby"])
     women = has_keyword(description, r"woman|women|female|pregnant")
-    water = has_keyword(description, ["boat","sea","water","drowning","submerged","sinking"])
+    water = has_keyword(description, ["boat","sea","water","drowning","sinking"])
     fire = has_keyword(description, ["fire","blaze","burning"])
     collapse = has_keyword(description, ["collapsed","collapse","building fell","structural"])
-    injured = has_keyword(description, ["injur","bleed","bleeding","hurt","fracture","unconscious","bleeding out"])
+    injured = has_keyword(description, ["injur","bleed","bleeding","hurt","fracture","unconscious"])
 
     score = base_sev
     if reported_count and reported_count >= 1:
-        if reported_count >= 50:
-            score += 2
-        elif reported_count >= 10:
-            score += 1
-    if children:
-        score += 1
-    if water or fire or collapse:
-        score += 1
-    if injured:
-        score += 1
-    if women:
-        score += 0.5
+        if reported_count >= 50: score += 2
+        elif reported_count >= 10: score += 1
+    if children: score += 1
+    if water or fire or collapse: score += 1
+    if injured: score += 1
+    if women: score += 0.5
 
     urgency_nudge = 0
-    if base_urgency > 0.75:
-        urgency_nudge = 1
-    elif base_urgency > 0.6:
-        urgency_nudge = 0.5
+    if base_urgency > 0.75: urgency_nudge = 1
+    elif base_urgency > 0.6: urgency_nudge = 0.5
 
     score = score + urgency_nudge
     score = max(1, min(5, score))
-    if score >= 6:
-        final_label = "critical"
-    elif score >= 3.5:
-        final_label = "high"
-    elif score >= 2.0:
-        final_label = "medium"
-    else:
-        final_label = "low"
-
+    if score >= 4.5: final_label = "critical"
+    elif score >= 3.2: final_label = "high"
+    elif score >= 2.2: final_label = "medium"
+    else: final_label = "low"
     final_urgency = min(1.0, max(0.0, base_urgency * 0.6 + (score / 5.0) * 0.6))
-
-    # final_count: if unknown keep None
     final_count = reported_count if reported_count is not None else None
 
     parsed_out = dict(parsed)
@@ -278,26 +172,24 @@ def heuristic_adjust_severity(parsed, description):
         "injured": bool(injured),
         "women": bool(women),
         "base_severity": base_sev_label,
-        "severity_source": "heuristic+model" if ML_MODEL else "heuristic"
+        "severity_source": "ml+heuristic" if SEV_MODEL else "heuristic"
     }
     return parsed_out
 
 def ml_predict_severity(description):
-    """
-    Use the persisted model if available. Returns (label, confidence) or (None, None).
-    """
-    if not SKLEARN_AVAILABLE or ML_MODEL is None or VECTORIZER is None:
-        return None, None
+    """Predict severity label using loaded unified model if available."""
+    if not SKLEARN_AVAILABLE: return None, None
+    if SEV_MODEL is None or VECTORIZER is None:
+        load_severity_model()
+    if SEV_MODEL is None or VECTORIZER is None: return None, None
     try:
         X = VECTORIZER.transform([description])
-        pred = ML_MODEL.predict(X)[0]
-        # get probability if available
+        pred = SEV_MODEL.predict(X)[0]
         prob = None
         try:
-            probs = ML_MODEL.predict_proba(X)[0]
-            # map label to index in classes_
-            label_idx = list(ML_MODEL.classes_).index(pred)
-            prob = float(probs[label_idx])
+            probs = SEV_MODEL.predict_proba(X)[0]
+            idx = list(SEV_MODEL.classes_).index(pred)
+            prob = float(probs[idx])
         except Exception:
             prob = None
         return pred, prob
@@ -305,6 +197,7 @@ def ml_predict_severity(description):
         logging.exception("ML predict failed: %s", e)
         return None, None
 
+# ------------------ analyze_incident (Gemini + ML + heuristics) ------------------
 def analyze_incident(raw_report: dict) -> dict:
     location = raw_report.get("location", "")
     description = raw_report.get("description", "")
@@ -327,8 +220,11 @@ Return JSON with this structure:
 }}
 """
     try:
-        resp = model.generate_content(prompt)
-        raw_text = resp.text.strip()
+        if model:
+            resp = model.generate_content(prompt)
+            raw_text = resp.text.strip()
+        else:
+            raw_text = "{}"
         parsed = {}
         try:
             parsed = json.loads(raw_text)
@@ -360,7 +256,7 @@ Return JSON with this structure:
             "summary": f"(AI error) {str(e)}"
         }
 
-    # ML prediction using persisted model
+    # ML prediction using the unified severity model
     ml_label, ml_conf = ml_predict_severity(description)
     if ml_label:
         parsed_safe["severity_ml"] = ml_label
@@ -368,7 +264,7 @@ Return JSON with this structure:
 
     parsed_adjusted = heuristic_adjust_severity(parsed_safe, description)
 
-    # if ML predicted and more severe than heuristic, prefer it
+    # If ML predicted more severe than heuristic, prefer it
     if ml_label:
         try:
             ml_num = SEV_LABEL_TO_NUM.get(ml_label, 2)
@@ -382,58 +278,20 @@ Return JSON with this structure:
 
     return parsed_adjusted
 
-# small helper (unchanged)
-def pretty_format(parsed):
-    out = []
-    out.append(f"Type: {parsed.get('incident_type')}")
-    out.append(f"Severity: {parsed.get('severity')} (urgency {parsed.get('urgency_score')})")
-    out.append(f"Affected: {parsed.get('affected_people_estimate')}")
-    out.append("Follow up questions:")
-    for q in parsed.get("follow_up_questions", []):
-        out.append(f"  - {q}")
-    out.append("Summary:")
-    out.append(parsed.get("summary",""))
-    return "\n".join(out)
-
-
+# ------------------ generate_action_plan (unchanged behavior) ------------------
 def generate_action_plan(incidents: list) -> dict:
-    """
-    Generate a consolidated action plan for multiple incidents.
-    Expects a list of incident dicts (already analyzed).
-    Returns a dict with keys: summary, route (list), resources (list).
-    On Gemini failure, returns a reasonable fallback plan built locally.
-    """
     if not incidents:
-        return {
-            "summary": "No active incidents to generate a plan.",
-            "route": [],
-            "resources": []
-        }
-
-    # Sort by severity + urgency
-    severity_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+        return {"summary":"No active incidents to generate a plan.","route":[],"resources":[]}
+    severity_rank = {"critical":4,"high":3,"medium":2,"low":1}
     incidents_sorted = sorted(
         incidents,
-        key=lambda x: (
-            severity_rank.get(x.get("analysis", {}).get("severity", "medium"), 2),
-            x.get("analysis", {}).get("urgency_score", 0)
-        ),
+        key=lambda x: (severity_rank.get(x.get("analysis",{}).get("severity","medium"),2), x.get("analysis",{}).get("urgency_score",0)),
         reverse=True
     )
-
-    # Build simplified input for Gemini
     simplified = []
     for it in incidents_sorted:
-        a = it.get("analysis", {})
-        simplified.append({
-            "location": it.get("location"),
-            "lat": it.get("lat"),
-            "lng": it.get("lng"),
-            "severity": a.get("severity"),
-            "affected": a.get("affected_people_estimate"),
-            "summary": a.get("summary")
-        })
-
+        a = it.get("analysis",{})
+        simplified.append({"location": it.get("location"), "lat": it.get("lat"), "lng": it.get("lng"), "severity": a.get("severity"), "affected": a.get("affected_people_estimate"), "summary": a.get("summary")})
     prompt = f"""
 You are an emergency operations planner.
 
@@ -459,37 +317,30 @@ Return ONLY valid JSON in this format:
   "resources": ["item1", "item2"]
 }}
 """
-
     try:
-        resp = model.generate_content(prompt)
-        text = resp.text.strip()
-
-        # extract JSON safely
+        if model:
+            resp = model.generate_content(prompt)
+            text = resp.text.strip()
+        else:
+            # fallback: route equals incidents_sorted order
+            text = json.dumps({
+                "summary": "(fallback) No Gemini available - route ordered by severity",
+                "route": [{"location": it.get("location"), "lat": it.get("lat"), "lng": it.get("lng"), "reason": f"Priority {it.get('analysis',{}).get('severity','n/a')}"} for it in incidents_sorted],
+                "resources": ["Ambulance","Medical Kit"]
+            })
         match = re.search(r'(\{.*\})', text, re.S)
         if match:
             parsed = json.loads(match.group(1))
             return parsed
-
-        # if not JSON, still return text summary
         return {"summary": text, "route": [], "resources": []}
-
     except Exception as e:
-        # fallback plan generator (local)
+        # safe fallback
         try:
             route = []
             for it in incidents_sorted:
-                a = it.get("analysis", {})
-                route.append({
-                    "location": it.get("location"),
-                    "lat": it.get("lat"),
-                    "lng": it.get("lng"),
-                    "reason": f"Priority {a.get('severity','n/a')}"
-                })
+                a = it.get("analysis",{})
+                route.append({"location": it.get("location"), "lat": it.get("lat"), "lng": it.get("lng"), "reason": f"Priority {a.get('severity','n/a')}"})
             resources = ["Ambulance", "Rescue Boat"] if any(has_keyword((i.get("description") or ""), ["boat","drowning","sinking","sea"]) for i in incidents_sorted) else ["Ambulance", "Medical Kit"]
-            return {
-                "summary": f"(Fallback plan) Model failed: {str(e)}",
-                "route": route,
-                "resources": resources
-            }
+            return {"summary": f"(Fallback plan) Model failed: {e}", "route": route, "resources": resources}
         except Exception as e2:
             return {"summary": f"Failed to generate plan: {e2}", "route": [], "resources": []}

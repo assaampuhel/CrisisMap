@@ -16,5 +16,3 @@ backend/uploads/
 # IDE
 .vscode/
 .idea/
-
-.gitignore
