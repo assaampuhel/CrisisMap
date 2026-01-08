@@ -18,6 +18,7 @@ This project is built for **hackathons, emergency simulations, and disaster-mana
 2. [Problem Statement](#problem-statement)
 3. [Solution Summary](#solution-summary)
 4. [Key Features](#key-features)
+5. [SnapShots](#snapshots)
 5. [System Architecture](#system-architecture)
 6. [Technology Stack](#technology-stack)
 7. [Project Structure](#project-structure)
@@ -87,9 +88,19 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ---
 
+## Snapshots
+
+![citizen_report](mvp_snaps/citizen_report.jpg)
+![admin_dash](mvp_snaps/admin_dash.jpg)
+![admin_plan](mvp_snaps/admin_plan.jpg)
+![team_dash](mvp_snaps/team_dash.jpg)
+![team_plan](mvp_snaps/team_plan.jpg)
+
+---
+
 ## 📦 System Architecture
 
-
+AI Powered real time Incident triage smart dispatching and live rescue coordination
 
 ---
 
