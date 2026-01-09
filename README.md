@@ -16,17 +16,17 @@ This project is built for **hackathons, emergency simulations, and disaster-mana
 ---
 
 ## 📌 Table of Contents
-1. [Overview](#overview)
-2. [Problem Statement](#problem-statement)
-3. [Solution Summary](#solution-summary)
-4. [Key Features](#key-features)
-5. [SnapShots](#snapshots)
-5. [System Architecture](#system-architecture)
-6. [Process Flow]
-6. [Technology Stack](#technology-stack)
-7. [Project Structure](#project-structure)
-8. [Installation & Setup](#installation--setup)
-9. [Running the Application](#running-the-application)
+1. [Overview](#-overview)
+2. [Problem Statement](#-problem-statement)
+3. [Solution Summary](#-solution-summary)
+4. [Key Features](#-key-features)
+5. [SnapShots](#-snapshots)
+5. [System Architecture](#-system-architecture)
+6. [Process Flow](#-process-flow)
+6. [Technology Stack](#️-technology-stack)
+7. [Project Structure](#️-project-structure)
+8. [Installation & Setup](#-installation--setup)
+9. [Running the Application](#️-running-the-application)
 10. [Team](#-team)
 
 ---
@@ -91,7 +91,7 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ---
 
-## Snapshots
+## 📸 Snapshots
 
 ![citizen_report](mvp_snaps/citizen_report.jpg)
 ![admin_dash](mvp_snaps/admin_dash.jpg)
