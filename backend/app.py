@@ -1,9 +1,4 @@
-"""
-Main Flask app. Register blueprints and provide a route to serve uploaded images.
-Run this file from the backend directory:
-    cd backend
-    python app.py
-"""
+# backend/app.py
 
 import os
 from flask import Flask, send_from_directory

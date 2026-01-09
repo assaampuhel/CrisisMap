@@ -1,6 +1,4 @@
 // frontend/admin/dashboard.js
-// Updated admin dashboard: shows team "Last seen" (clickable -> Google Maps).
-// Replace your existing frontend/admin/dashboard.js with this file.
 
 const API_BASE = "http://127.0.0.1:5000";
 

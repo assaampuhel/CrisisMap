@@ -1,6 +1,5 @@
-"""
-Central configuration. Loads environment variables from ../.env.
-"""
+# backend/config.py
+
 import os
 from dotenv import load_dotenv
 from pathlib import Path

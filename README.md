@@ -2,6 +2,8 @@
 
 CrisisMap is a **AI-assisted emergency response platform** designed to help authorities **collect incident reports, assess severity, intelligently assign rescue teams, and track execution in real time**.
 
+[MVP Demo](https://app.supademo.com/demo/cmk560n5l0ps8k6skpz2czf9w?utm_source=link)
+
 The system combines:
 - A **Flask backend** running locally or on a VM
 - **Firestore** for real-time data persistence
@@ -20,6 +22,7 @@ This project is built for **hackathons, emergency simulations, and disaster-mana
 4. [Key Features](#key-features)
 5. [SnapShots](#snapshots)
 5. [System Architecture](#system-architecture)
+6. [Process Flow]
 6. [Technology Stack](#technology-stack)
 7. [Project Structure](#project-structure)
 8. [Installation & Setup](#installation--setup)
@@ -100,7 +103,13 @@ CrisisMap introduces an **AI and ML driven command center** that:
 
 ## 📦 System Architecture
 
-AI Powered real time Incident triage smart dispatching and live rescue coordination
+![arch](mvp_snaps/arch.jpeg)
+
+---
+
+## ⏳ Process Flow
+
+![process_flow](mvp_snaps/process_flow.png)
 
 ---
 

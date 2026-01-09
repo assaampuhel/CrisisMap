@@ -1,4 +1,5 @@
-// citizen/form.js — browser SpeechRecognition, submit, toast, TTS
+// frontend/citizen/form.js
+
 const API_BASE = "http://127.0.0.1:5000"; // adjust if backend is elsewhere
 
 const form = document.getElementById("reportForm");

@@ -1,4 +1,5 @@
-// map.js — initializes Google Map, marker, and Places autocomplete
+// frontend/citizen/map.js
+
 let map, marker, autocomplete;
 
 window.currentLocation = null;
